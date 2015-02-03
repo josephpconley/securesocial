@@ -21,6 +21,7 @@ import _root_.java.util.UUID
 
 import play.api.Play
 import play.api.libs.json.{ JsError, JsSuccess, JsValue, Json }
+import play.api.libs.ws.WSRequestHolder
 import play.api.libs.ws.WSResponse
 import play.api.mvc._
 import securesocial.core.services.{ CacheService, HttpService, RoutesService }
@@ -37,6 +38,8 @@ trait OAuth2Client {
   def retrieveProfile(profileUrl: String): Future[JsValue]
 
   type OAuth2InfoBuilder = WSResponse => OAuth2Info
+
+  def signRequest(request: WSRequestHolder, token: String): WSRequestHolder
 
   implicit def executionContext: ExecutionContext
 }
@@ -59,6 +62,9 @@ object OAuth2Client {
 
     override def retrieveProfile(profileUrl: String): Future[JsValue] =
       httpService.url(profileUrl).get().map(_.json)
+
+    override def signRequest(request: WSRequestHolder, token: String): WSRequestHolder =
+      request.withQueryString((OAuth2Constants.AccessToken, token))
   }
 }
 /**
@@ -66,7 +72,7 @@ object OAuth2Client {
  */
 abstract class OAuth2Provider(
   routesService: RoutesService,
-  client: OAuth2Client,
+  val client: OAuth2Client,
   cacheService: CacheService)
     extends IdentityProvider with ApiSupport {
 

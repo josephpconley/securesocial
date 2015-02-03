@@ -18,6 +18,7 @@ package securesocial.core
 
 import _root_.java.util.UUID
 import play.api.libs.oauth._
+import play.api.libs.ws.WSRequestHolder
 import play.api.mvc.{ AnyContent, Request }
 import play.api.mvc.Results.Redirect
 import oauth.signpost.exception.OAuthException
@@ -41,6 +42,8 @@ trait OAuth1Client {
   def redirectUrl(token: String): String
 
   def retrieveProfile(url: String, info: OAuth1Info): Future[JsValue]
+
+  def signRequest(request: WSRequestHolder, info: OAuth1Info): WSRequestHolder
 
   implicit def executionContext: ExecutionContext
 }
@@ -71,6 +74,9 @@ object OAuth1Client {
 
     override def retrieveProfile(url: String, info: OAuth1Info): Future[JsValue] =
       httpService.url(url).sign(OAuthCalculator(serviceInfo.key, RequestToken(info.token, info.secret))).get().map(_.json)
+
+    override def signRequest(request: WSRequestHolder, info: OAuth1Info) =
+      request.sign(OAuthCalculator(serviceInfo.key, RequestToken(info.token, info.secret)))
   }
 }
 
