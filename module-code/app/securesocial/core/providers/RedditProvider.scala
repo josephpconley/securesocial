@@ -12,10 +12,11 @@ import scala.concurrent.Future
 /**
  * A Reddit provider
  *
+ * Relies on Http Authentication for second leg of OAuth
  */
 class RedditProvider(routesService: RoutesService,
-  cacheService: CacheService,
-  client: OAuth2Client)
+    cacheService: CacheService,
+    client: OAuth2Client)
     extends OAuth2Provider(routesService, client, cacheService) {
   val MeUrl = "https://oauth.reddit.com/api/v1/me"
   val Id = "id"
@@ -36,11 +37,11 @@ class RedditProvider(routesService: RoutesService,
     val basicAuth = s"Basic $enc"
 
     client.httpService.url(settings.accessTokenUrl).withHeaders("Authorization" -> basicAuth).post(params).map(buildInfo)
-      .recover {
-        case e =>
-          logger.error("[securesocial] error trying to get an access token for provider %s".format(id), e)
-          throw new AuthenticationException()
-      }
+        .recover {
+      case e =>
+        logger.error("[securesocial] error trying to get an access token for provider %s".format(id), e)
+        throw new AuthenticationException()
+    }
   }
 
   val userInfoReader = (
@@ -49,16 +50,13 @@ class RedditProvider(routesService: RoutesService,
   ).tupled
 
   def fillProfile(info: OAuth2Info): Future[BasicProfile] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     client.httpService.url(MeUrl).withHeaders("Authorization" -> s"bearer ${info.accessToken}").get().map { res =>
       userInfoReader.reads(res.json).fold(
         invalid => {
-          logger.error("[securesocial] got back " + res.body)
+          logger.error("[securesocial] got back error message " + res.body)
           throw new AuthenticationException()
         },
-        me => {
-          BasicProfile(id, me._1, None, None, Some(me._2), None, None, authMethod, oAuth2Info = Some(info))
-        }
+        me => BasicProfile(id, me._1, None, None, Some(me._2), None, None, authMethod, oAuth2Info = Some(info))
       )
     } recover {
       case e: AuthenticationException => throw e
