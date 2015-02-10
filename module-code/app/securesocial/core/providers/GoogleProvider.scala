@@ -17,6 +17,8 @@
 package securesocial.core.providers
 
 import play.api.libs.json.{ JsArray, JsObject }
+import play.api.libs.ws.WS
+import play.api.libs.ws.WSAuthScheme.BASIC
 import securesocial.core._
 import securesocial.core.services.{ CacheService, RoutesService }
 
@@ -28,7 +30,8 @@ import scala.concurrent.Future
 class GoogleProvider(routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+    extends OAuth2Provider(routesService, client, cacheService)
+    with OAuth2OfflineProvider {
   val UserInfoApi = "https://www.googleapis.com/plus/v1/people/me?fields=id,name,displayName,image,emails&access_token="
   val Error = "error"
   val Message = "message"
@@ -71,6 +74,18 @@ class GoogleProvider(routesService: RoutesService,
       case e =>
         logger.error("[securesocial] error retrieving profile information from Google", e)
         throw new AuthenticationException()
+    }
+  }
+  override def refreshAccessToken(info: OAuth2Info): Future[OAuth2Info] = {
+    val body = Map(
+      OAuth2Constants.GrantType -> Seq(OAuth2Constants.RefreshToken),
+      OAuth2Constants.RefreshToken -> Seq(info.refreshToken.get),
+      OAuth2Constants.ClientId -> Seq(settings.clientId),
+      OAuth2Constants.ClientSecret -> Seq(settings.clientSecret)
+    )
+
+    client.httpService.url(settings.accessTokenUrl).post(body) map { res =>
+      buildInfo(res)
     }
   }
 }

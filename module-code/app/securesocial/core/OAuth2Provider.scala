@@ -21,8 +21,7 @@ import _root_.java.util.UUID
 
 import play.api.Play
 import play.api.libs.json.{ JsError, JsSuccess, JsValue, Json }
-import play.api.libs.ws.WSRequestHolder
-import play.api.libs.ws.WSResponse
+import play.api.libs.ws.{ WS, WSRequestHolder, WSResponse }
 import play.api.mvc._
 import securesocial.core.services.{ CacheService, HttpService, RoutesService }
 
@@ -66,6 +65,10 @@ object OAuth2Client {
     override def signRequest(request: WSRequestHolder, token: String): WSRequestHolder =
       request.withQueryString((OAuth2Constants.AccessToken, token))
   }
+}
+
+trait OAuth2OfflineProvider {
+  def refreshAccessToken(info: OAuth2Info): Future[OAuth2Info]
 }
 /**
  * Base class for all OAuth2 providers

@@ -1,6 +1,5 @@
 package securesocial.core.providers
 
-import org.apache.commons.codec.binary.Base64
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.libs.ws.WSAuthScheme.BASIC
@@ -20,7 +19,9 @@ import scala.concurrent.Future
 class RedditProvider(routesService: RoutesService,
   cacheService: CacheService,
   client: OAuth2Client)
-    extends OAuth2Provider(routesService, client, cacheService) {
+    extends OAuth2Provider(routesService, client, cacheService)
+    with OAuth2OfflineProvider {
+
   val MeUrl = "https://oauth.reddit.com/api/v1/me"
   val Id = "id"
   val Name = "name"
@@ -63,6 +64,17 @@ class RedditProvider(routesService: RoutesService,
       case e =>
         logger.error("[securesocial] error retrieving profile information from reddit", e)
         throw new AuthenticationException()
+    }
+  }
+
+  override def refreshAccessToken(info: OAuth2Info): Future[OAuth2Info] = {
+    val params = Map(
+      OAuth2Constants.GrantType -> Seq(OAuth2Constants.RefreshToken),
+      OAuth2Constants.RefreshToken -> Seq(info.refreshToken.get)
+    )
+
+    client.httpService.url(settings.accessTokenUrl).withAuth(settings.clientId, settings.clientSecret, BASIC).post(params) map { res =>
+      buildInfo(res)
     }
   }
 }
